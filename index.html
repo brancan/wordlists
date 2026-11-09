@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ahorcado">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Solver de Ahorcado</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --mute:#94a3b8;
+    --acc:#38bdf8; --ok:#4ade80; --bad:#f87171;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f1f5f9; --card:#ffffff; --line:#cbd5e1; --txt:#0f172a; --mute:#64748b; --acc:#0284c7; --ok:#16a34a; --bad:#dc2626; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{padding:max(12px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px}
+  h1{font-size:1.15rem;margin:0}
+  .count{font-variant-numeric:tabular-nums;color:var(--mute);font-size:.9rem}
+  .count b{color:var(--acc);font-size:1.1rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+  label{display:block;font-size:.8rem;color:var(--mute);margin:10px 0 4px}
+  label:first-child{margin-top:0}
+  input{width:100%;font:inherit;color:var(--txt);background:transparent;border:1px solid var(--line);border-radius:10px;padding:11px 12px;outline:none}
+  input:focus{border-color:var(--acc)}
+  input.pattern{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.3rem;letter-spacing:.25em;text-align:center}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:.75rem;color:var(--mute);margin-top:3px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:transparent;border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:5px 11px;font:inherit;font-size:.9rem;cursor:pointer}
+  .chip small{color:var(--mute);margin-left:4px}
+  .chip.letter{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--acc);border-color:var(--acc)}
+  .chip.letter.ok{color:var(--ok);border-color:var(--ok)}
+  h2{font-size:.85rem;margin:0 0 8px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .words{display:flex;flex-wrap:wrap;gap:6px}
+  .actions{display:flex;gap:8px;margin-top:10px}
+  button.btn{flex:1;font:inherit;border:1px solid var(--line);background:transparent;color:var(--txt);border-radius:10px;padding:10px;cursor:pointer}
+  button.btn.primary{background:var(--acc);border-color:var(--acc);color:#04202e;font-weight:600}
+  .empty{color:var(--mute);padding:6px 0}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  .status{color:var(--mute);text-align:center;padding:30px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔤 Solver de Ahorcado</h1>
+  <div class="count" id="count">cargando…</div>
+</header>
+
+<div class="card">
+  <label for="pattern">Letras en su lugar (usá _ para las desconocidas)</label>
+  <input id="pattern" class="pattern" inputmode="text" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="_ a _ _ e">
+
+  <div class="row">
+    <div>
+      <label for="exclude">Letras que NO están</label>
+      <input id="exclude" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="xzq">
+    </div>
+    <div>
+      <label for="include">Letras que SÍ están</label>
+      <input id="include" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="rt">
+    </div>
+  </div>
+
+  <label for="nothere">Letra que NO va en cierta posición (ej: e3 a1)</label>
+  <input id="nothere" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="e3 a1">
+  <div class="hint">La primera posición es la 1.</div>
+
+  <div class="row">
+    <div>
+      <label for="length">Largo exacto</label>
+      <input id="length" type="number" inputmode="numeric" min="1" max="30" placeholder="—">
+    </div>
+    <div>
+      <label for="maxlen">Largo máximo</label>
+      <input id="maxlen" type="number" inputmode="numeric" min="1" max="30" placeholder="—">
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="clear">Limpiar</button>
+    <button class="btn primary" id="random">Palabra al azar</button>
+  </div>
+</div>
+
+<div class="card" id="lettersCard" hidden>
+  <h2>Próximas letras a probar</h2>
+  <div class="chips" id="letters"></div>
+</div>
+
+<div class="card">
+  <h2 id="wordsTitle">Palabras</h2>
+  <div class="words" id="words"><div class="status">Cargando diccionario…</div></div>
+  <div class="actions"><button class="btn" id="more" hidden>Ver más</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="filter.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
