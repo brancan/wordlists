@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bondi · Solver</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#0c0e13; --border:#2a2f3a; --text:#e6e9ef; --muted:#9aa3b2;
+    --accent:#6ea8fe; --gray:#3a3f4b; --yellow:#c9a227; --green:#3fb950;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
+  .wrap{max-width:820px;margin:0 auto;padding:22px 16px 72px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+  .nav{display:flex;gap:8px;align-items:center}
+  .nav a{color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600;padding:5px 10px;border:1px solid var(--border);border-radius:7px}
+  .nav a:hover{color:var(--text);border-color:var(--muted)}
+  .nav a.active{color:var(--text);background:var(--panel);border-color:var(--accent)}
+  h1{font-size:1.4rem;margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 16px;font-size:.88rem}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
+  .tab{background:none;border:0;color:var(--muted);padding:10px 16px;cursor:pointer;font-size:.92rem;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent)}
+  .page{display:none}
+  .page.active{display:block}
+  .pair{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:end;margin-bottom:14px}
+  @media(max-width:620px){.pair{grid-template-columns:1fr}}
+  .field{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .field label{display:block;font-weight:600;font-size:.85rem;margin-bottom:2px}
+  .field .fh{color:var(--muted);font-size:.74rem;margin-bottom:8px}
+  input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 10px;font-family:var(--mono);font-size:.95rem}
+  input:focus{outline:none;border-color:var(--accent)}
+  .controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  button.btn{background:var(--accent);color:#06101f;border:0;border-radius:7px;padding:9px 15px;font-weight:700;cursor:pointer;font-size:.9rem}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:9px 15px;font-weight:700;cursor:pointer;font-size:.9rem}
+  button.ghost:hover{color:var(--text);border-color:var(--muted)}
+  button.swap{height:40px;padding:0 13px;align-self:center;font-size:1.05rem}
+  @media(max-width:620px){button.swap{justify-self:start}}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .hint{color:var(--muted);font-size:.8rem;margin:4px 0 14px}
+  .msg{color:var(--yellow);font-size:.85rem;min-height:1.2em;margin-bottom:8px}
+  .notice{display:none;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:7px;padding:9px 12px;font-size:.84rem;color:var(--text);margin-bottom:12px}
+  .notice.show{display:block}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .panel h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px}
+  .summary{font-size:.88rem;color:var(--muted);margin-bottom:10px}
+  .summary b{color:var(--text);font-family:var(--mono)}
+  .chain{display:flex;flex-direction:column;gap:6px}
+  .step{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 8px;border-radius:9px;border:1px solid transparent;cursor:pointer}
+  .step:hover{background:rgba(255,255,255,.02);border-color:var(--border)}
+  .step.selected{background:var(--panel2);border-color:var(--accent)}
+  .brow{display:flex;gap:7px;flex-wrap:wrap}
+  .tile{width:54px;height:54px;border-radius:8px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:1.5rem;font-weight:700;text-transform:lowercase;background:var(--panel2);user-select:none}
+  @media(max-width:620px){.tile{width:44px;height:44px;font-size:1.25rem}}
+  .tile.yellow{background:var(--yellow);border-color:var(--yellow);color:#06101f}
+  .tile.green{background:var(--green);border-color:var(--green);color:#06101f}
+  .step-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.82rem}
+  .badge{font-family:var(--mono);font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--muted)}
+  .badge.green{color:var(--green);border-color:rgba(63,185,80,.45)}
+  .badge.yellow{color:var(--yellow);border-color:rgba(201,162,39,.45)}
+  .step-rem{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+  .nlist{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .nb{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text);cursor:pointer;font-size:.84rem}
+  .nb:hover{border-color:var(--accent)}
+  .nb.unreach{opacity:.55}
+  .nb-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .nb-dot.green{background:var(--green)}
+  .nb-dot.yellow{background:var(--yellow)}
+  .nb-word{font-family:var(--mono);font-weight:700}
+  .nb-dist{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+  .doc h2{font-size:1.05rem;color:var(--text);text-transform:none;letter-spacing:0;margin:26px 0 8px}
+  .doc h2:first-child{margin-top:0}
+  .doc p{font-size:.92rem;margin:8px 0}
+  .doc code{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:var(--mono);font-size:.85rem}
+  .formula{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:7px;padding:12px 14px;font-family:var(--mono);font-size:.9rem;margin:12px 0;overflow-x:auto;white-space:pre}
+  .doc .k{color:var(--green)} .doc .y{color:var(--yellow)} .doc .g2{color:var(--muted)}
+  table.ex{width:100%;border-collapse:collapse;font-size:.85rem;margin:10px 0}
+  table.ex th,table.ex td{border:1px solid var(--border);padding:6px 9px;text-align:left}
+  table.ex th{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Bondi · Solver</h1>
+    <nav class="nav" aria-label="Juegos">
+      <a href="index.html">Wordle</a>
+      <a href="bondi.html" class="active">Bondi</a>
+    </nav>
+  </div>
+  <p class="sub">Encontrá el camino mínimo cambiando una letra por paso entre dos palabras del mismo largo. Todo corre en tu navegador — diccionario español sin tildes (ñ incluida).</p>
+
+  <div class="tabs">
+    <button type="button" class="tab active" data-page="solver">Solver</button>
+    <button type="button" class="tab" data-page="como">Cómo funciona</button>
+  </div>
+
+  <!-- ===== SOLVER ===== -->
+  <section class="page active" id="page-solver">
+    <div class="pair">
+      <div class="field">
+        <label for="fromWord">Palabra origen</label>
+        <div class="fh">Mismo largo que el destino (ñ incluida)</div>
+        <input type="text" id="fromWord" placeholder="mesa" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+      <button type="button" class="ghost swap" id="swapBtn" title="Intercambiar origen y destino" aria-label="Intercambiar origen y destino">⇄</button>
+      <div class="field">
+        <label for="toWord">Palabra destino</label>
+        <div class="fh">A dónde querés llegar</div>
+        <input type="text" id="toWord" placeholder="pata" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button type="button" class="btn" id="solveBtn">Resolver camino</button>
+      <button type="button" class="ghost" id="stepBtn">Solo 1 paso</button>
+      <button type="button" class="ghost" id="resetBtn">Reiniciar</button>
+    </div>
+
+    <p class="hint">Apretá <b>Enter</b> para resolver completo, o usá <b>Solo 1 paso</b> para destrabar el siguiente movimiento sin spoilear el resto. Hacé clic en cualquier paso para ver y probar sus vecinos.</p>
+
+    <div class="notice" id="notice"></div>
+    <div class="msg" id="msg"></div>
+
+    <div class="panel" id="chainPanel" style="display:none">
+      <h2>Camino</h2>
+      <div class="summary" id="chainSummary"></div>
+      <div class="chain" id="chain"></div>
+    </div>
+
+    <div class="panel" id="neighborsPanel" style="display:none">
+      <h2 id="neighborsTitle">Vecinos</h2>
+      <p class="hint" style="margin:0 0 6px"><span style="color:var(--green)">Verde</span> = acerca al destino · <span style="color:var(--yellow)">Amarillo</span> = no acerca (desvío). Clic en un vecino para seguir o bifurcar.</p>
+      <div class="nlist" id="neighbors"></div>
+    </div>
+  </section>
+
+  <!-- ===== CÓMO FUNCIONA ===== -->
+  <section class="page doc" id="page-como">
+    <h2>1 · Reglas de Bondi</h2>
+    <p>Empezás con una palabra <b>origen</b> y tenés que llegar a una palabra <b>destino</b> de la misma longitud cambiando <b>exactamente una letra por turno</b>. Cada palabra intermedia debe ser válida en el diccionario.</p>
+    <p>Ejemplo clásico en 3 pasos (<code>mesa</code> → <code>pata</code>):</p>
+    <div class="formula">mesa
+masa   <span class="k">e→a · acerca</span>     (faltan 2 letras)
+pasa   <span class="k">m→p · acerca</span>     (falta 1 letra)
+pata   <span class="k">s→t · acerca</span>     (0 · ¡listo!)</div>
+
+    <h2>2 · Estrategia: pasos verdes vs. amarillos (desvíos)</h2>
+    <p>En cada turno podés medir cuántas letras siguen distintas respecto al destino (distancia de Hamming):</p>
+    <table class="ex">
+      <tr><th>Tipo de paso</th><th>Qué significa</th><th>Cuándo usarlo</th></tr>
+      <tr><td><span class="k"><b>Verde (acerca)</b></span></td><td>Cambiás una letra incorrecta por la letra que va en el destino. Reduce la distancia de Hamming en 1.</td><td>Siempre que te mantenga en camino al destino: es el avance directo hacia las letras que faltan.</td></tr>
+      <tr><td><span class="y"><b>Amarillo (no acerca / desvío)</b></span></td><td>Cambiás una letra por otra que no coincide con el destino (o rompés una que ya estaba bien).</td><td>Cuando los pasos verdes llevan a un callejón sin salida del diccionario y necesitás abrir otra rama para destrabarte.</td></tr>
+    </table>
+    <p>Muchos tableros no admiten un camino 100% verde: dar un paso amarillo en el momento justo es lo que conecta dos zonas aisladas del diccionario.</p>
+
+    <h2>3 · Índice de comodines + BFS desde el destino</h2>
+    <p>Para encontrar el camino mínimo exacto sin tardar, el solver divide el problema en dos etapas:</p>
+    <div class="formula">1) Índice por comodines (cacheado por longitud L):
+   "mesa" → "_esa", "m_sa", "me_a", "mes_"
+   Dos palabras son vecinas si comparten un bucket.
+
+2) BFS desde el destino:
+   cola = [destino], dist[destino] = 0
+   para cada palabra u en cola:
+     para cada vecino v de u:
+       si v no visitada: dist[v] = dist[u] + 1</div>
+    <p>Como el BFS parte del <b>destino</b>, en una sola pasada calcula <code>dist[w]</code> (la cantidad mínima exacta de pasos desde cualquier palabra alcanzable hasta el destino). Además, si el origen o el destino no figuran en <code>words.js</code>, se agregan de forma temporal al grafo de ese largo sin ensuciar la caché.</p>
+
+    <h2>4 · Desempate entre caminos mínimos</h2>
+    <p>Cuando existen varios vecinos óptimos con <code>dist[v] == dist[actual] - 1</code>, el solver elige el siguiente paso con este criterio:</p>
+    <p>1) Que sea un paso <span class="k">verde</span> (reduce la distancia de Hamming al destino).<br>
+       2) Mayor frecuencia de uso en español (<code>freq.js</code>), para priorizar palabras naturales sobre rarezas.<br>
+       3) Orden alfabético.</p>
+  </section>
+</div>
+
+<script src="words.js"></script>
+<script src="freq.js"></script>
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const VALID_RE=/^[a-zñ]+$/;
+  const ALL_WORDS=(window.WORDS||[]).filter(w=>VALID_RE.test(w));
+  const FREQ=window.FREQ||{};
+  const baseIndexCache=new Map();
+  const MAX_NEIGHBORS=150;
+
+  let state={graph:null,chain:[],selectedIndex:0};
+
+  // ---------- utilidades ----------
+  const normalize=raw=>raw.trim().toLowerCase();
+
+  function hamming(a,b){
+    let diff=0;
+    for(let i=0;i<a.length;i++) if(a[i]!==b[i]) diff++;
+    return diff;
+  }
+
+  function diffPos(a,b){
+    for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return i;
+    return -1;
+  }
+
+  function validatePair(rawFrom,rawTo){
+    const origen=normalize(rawFrom), destino=normalize(rawTo);
+    if(!origen || !destino) return {ok:false,error:"Completá tanto la palabra origen como la destino."};
+    if(!VALID_RE.test(origen) || !VALID_RE.test(destino))
+      return {ok:false,error:"Usá solo letras de la a a la z (ñ incluida, sin tildes ni espacios)."};
+    if(origen.length!==destino.length)
+      return {ok:false,error:"Las palabras origen y destino deben tener la misma cantidad de letras."};
+    return {ok:true,origen,destino};
+  }
+
+  // ---------- índice por comodines + grafo ----------
+  function addToBuckets(buckets,word){
+    for(let i=0;i<word.length;i++){
+      const key=word.slice(0,i)+"_"+word.slice(i+1);
+      let list=buckets.get(key);
+      if(!list){ list=[]; buckets.set(key,list); }
+      list.push(word);
+    }
+  }
+
+  function getBaseIndex(len){
+    if(baseIndexCache.has(len)) return baseIndexCache.get(len);
+    const wordSet=new Set();
+    const buckets=new Map();
+    for(const w of ALL_WORDS){
+      if(w.length!==len || wordSet.has(w)) continue;
+      wordSet.add(w);
+      addToBuckets(buckets,w);
+    }
+    const entry={wordSet,buckets};
+    baseIndexCache.set(len,entry);
+    return entry;
+  }
+
+  function pushNeighborsFrom(bucketMap,key,self,out){
+    const list=bucketMap.get(key);
+    if(!list) return;
+    for(const w of list) if(w!==self) out.push(w);
+  }
+
+  function getNeighbors(word,base,extraBuckets){
+    const out=[];
+    for(let i=0;i<word.length;i++){
+      const key=word.slice(0,i)+"_"+word.slice(i+1);
+      pushNeighborsFrom(base.buckets,key,word,out);
+      if(extraBuckets.size) pushNeighborsFrom(extraBuckets,key,word,out);
+    }
+    return out;
+  }
+
+  function buildGraph(origen,destino){
+    const prev=state.graph;
+    if(prev && prev.origen===origen && prev.destino===destino) return prev;
+    const base=getBaseIndex(origen.length);
+    const extras=[origen,destino].filter((w,idx,arr)=>!base.wordSet.has(w) && arr.indexOf(w)===idx);
+    const extraBuckets=new Map();
+    for(const w of extras) addToBuckets(extraBuckets,w);
+
+    const dist=new Map([[destino,0]]);
+    const queue=[destino];
+    for(let head=0;head<queue.length;head++){
+      const u=queue[head];
+      const nextDist=dist.get(u)+1;
+      for(const v of getNeighbors(u,base,extraBuckets)){
+        if(!dist.has(v)){ dist.set(v,nextDist); queue.push(v); }
+      }
+    }
+    return {len:origen.length,origen,destino,base,extraBuckets,extras,dist};
+  }
+
+  // ---------- selección óptima ----------
+  function compareTie(a,b,currH,destino){
+    const redA=hamming(a,destino)<currH?1:0;
+    const redB=hamming(b,destino)<currH?1:0;
+    if(redA!==redB) return redB-redA;
+    const fDiff=(FREQ[b]||0)-(FREQ[a]||0);
+    if(fDiff!==0) return fDiff;
+    return a.localeCompare(b,"es");
+  }
+
+  function bestNextStep(word,graph){
+    const d=graph.dist.get(word);
+    if(d===undefined || d===0) return null;
+    const currH=hamming(word,graph.destino);
+    let best=null;
+    for(const v of getNeighbors(word,graph.base,graph.extraBuckets)){
+      if(graph.dist.get(v)!==d-1) continue;
+      if(!best || compareTie(v,best,currH,graph.destino)<0) best=v;
+    }
+    return best;
+  }
+
+  function reconstructPath(origen,graph){
+    if(!graph.dist.has(origen)) return null;
+    const path=[origen];
+    let curr=origen;
+    while(curr!==graph.destino){
+      curr=bestNextStep(curr,graph);
+      if(!curr) return null;
+      path.push(curr);
+    }
+    return path;
+  }
+
+  function sortedNeighbors(word,graph){
+    const currH=hamming(word,graph.destino);
+    const list=getNeighbors(word,graph.base,graph.extraBuckets).map(v=>({
+      word:v,
+      reduces:hamming(v,graph.destino)<currH,
+      dist:graph.dist.get(v)
+    }));
+    list.sort((a,b)=>{
+      const reachA=a.dist!==undefined, reachB=b.dist!==undefined;
+      if(reachA!==reachB) return reachA?-1:1;
+      if(reachA && a.dist!==b.dist) return a.dist-b.dist;
+      if(a.reduces!==b.reduces) return a.reduces?-1:1;
+      const fDiff=(FREQ[b.word]||0)-(FREQ[a.word]||0);
+      if(fDiff!==0) return fDiff;
+      return a.word.localeCompare(b.word,"es");
+    });
+    return list;
+  }
+
+  // ---------- render ----------
+  function renderNotice(extras){
+    const el=$("notice");
+    if(!extras.length){ el.textContent=""; el.classList.remove("show"); return; }
+    const wordsLabel=extras.map(w=>`«${w}»`).join(" y ");
+    const verb=extras.length===1?"no figura en el diccionario; se incluyó":"no figuran en el diccionario; se incluyeron";
+    el.textContent=`Aviso: ${wordsLabel} ${verb} temporalmente en el grafo de ${extras[0].length} letras.`;
+    el.classList.add("show");
+  }
+
+  function formatRemaining(rem){
+    if(rem===0) return "0 · ¡destino!";
+    return rem===1 ? "falta 1 letra" : `faltan ${rem} letras`;
+  }
+
+  function renderStepRow(word,prevWord,idx,destino,isSelected){
+    const row=document.createElement("div");
+    row.className="step"+(isSelected?" selected":"");
+    row.addEventListener("click",()=>{ state.selectedIndex=idx; renderAll(); });
+
+    const brow=document.createElement("div");
+    brow.className="brow";
+
+    const changed=prevWord ? diffPos(prevWord,word) : -1;
+    const rem=hamming(word,destino);
+    const reduces=prevWord ? rem<hamming(prevWord,destino) : false;
+
+    for(let i=0;i<word.length;i++){
+      const tile=document.createElement("div");
+      tile.className="tile";
+      tile.textContent=word[i];
+      if(i===changed) tile.classList.add(reduces?"green":"yellow");
+      brow.appendChild(tile);
+    }
+
+    const meta=document.createElement("div");
+    meta.className="step-meta";
+    const badge=document.createElement("span");
+    if(!prevWord){
+      badge.className="badge";
+      badge.textContent="origen";
+    }else{
+      badge.className="badge "+(reduces?"green":"yellow");
+      badge.textContent=`${prevWord[changed]}→${word[changed]} · ${reduces?"acerca":"no acerca"}`;
+    }
+    const remEl=document.createElement("span");
+    remEl.className="step-rem";
+    remEl.textContent=formatRemaining(rem);
+
+    meta.appendChild(badge);
+    meta.appendChild(remEl);
+    row.appendChild(brow);
+    row.appendChild(meta);
+    return row;
+  }
+
+  function renderChain(){
+    const panel=$("chainPanel");
+    if(!state.chain.length || !state.graph){ panel.style.display="none"; return; }
+    panel.style.display="block";
+
+    const {destino,dist}=state.graph;
+    const stepsCount=state.chain.length-1;
+    const last=state.chain[state.chain.length-1];
+    const sum=$("chainSummary");
+    sum.innerHTML="";
+    if(last===destino){
+      sum.textContent=`Camino completo en ${stepsCount} ${stepsCount===1?"paso":"pasos"} (${state.graph.origen} → ${destino}).`;
+    }else{
+      const minLeft=dist.get(last);
+      const minText=minLeft===undefined ? "sin camino conocido al destino" : `faltan al menos ${minLeft} ${minLeft===1?"paso":"pasos"} desde «${last}»`;
+      sum.textContent=`Llevás ${stepsCount} ${stepsCount===1?"paso":"pasos"} · ${minText}.`;
+    }
+
+    const container=$("chain");
+    container.innerHTML="";
+    state.chain.forEach((word,idx)=>{
+      const prev=idx>0 ? state.chain[idx-1] : null;
+      container.appendChild(renderStepRow(word,prev,idx,destino,idx===state.selectedIndex));
+    });
+  }
+
+  function renderNeighbors(){
+    const panel=$("neighborsPanel");
+    if(!state.chain.length || !state.graph){ panel.style.display="none"; return; }
+    panel.style.display="block";
+
+    const active=state.chain[state.selectedIndex];
+    const list=sortedNeighbors(active,state.graph);
+    $("neighborsTitle").textContent=`Vecinos de «${active}» (${list.length})`;
+
+    const box=$("neighbors");
+    box.innerHTML="";
+    if(!list.length){
+      const empty=document.createElement("span");
+      empty.className="step-rem";
+      empty.textContent="No hay vecinos válidos a 1 letra en el diccionario.";
+      box.appendChild(empty);
+      return;
+    }
+
+    list.slice(0,MAX_NEIGHBORS).forEach(item=>{
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="nb"+(item.dist===undefined?" unreach":"");
+
+      const dot=document.createElement("span");
+      dot.className="nb-dot "+(item.reduces?"green":"yellow");
+
+      const wordEl=document.createElement("span");
+      wordEl.className="nb-word";
+      wordEl.textContent=item.word;
+
+      const distEl=document.createElement("span");
+      distEl.className="nb-dist";
+      if(item.dist===undefined) distEl.textContent="sin camino";
+      else if(item.dist===0) distEl.textContent="meta";
+      else distEl.textContent=item.dist===1 ? "1 paso" : `${item.dist} pasos`;
+
+      btn.appendChild(dot);
+      btn.appendChild(wordEl);
+      btn.appendChild(distEl);
+      btn.addEventListener("click",()=>extendWithNeighbor(item.word));
+      box.appendChild(btn);
+    });
+
+    if(list.length>MAX_NEIGHBORS){
+      const more=document.createElement("span");
+      more.className="step-rem";
+      more.textContent=`…+${list.length-MAX_NEIGHBORS} más`;
+      box.appendChild(more);
+    }
+  }
+
+  function renderAll(){
+    renderChain();
+    renderNeighbors();
+  }
+
+  // ---------- acciones ----------
+  function clearResults(){
+    state={graph:null,chain:[],selectedIndex:0};
+    $("notice").textContent="";
+    $("notice").classList.remove("show");
+    $("chainPanel").style.display="none";
+    $("neighborsPanel").style.display="none";
+  }
+
+  function ensureInitialized(){
+    const msg=$("msg");
+    msg.textContent="";
+    if(!ALL_WORDS.length){ msg.textContent="No se cargó words.js."; return false; }
+    const v=validatePair($("fromWord").value,$("toWord").value);
+    if(!v.ok){ clearResults(); msg.textContent=v.error; return false; }
+    const graph=buildGraph(v.origen,v.destino);
+    const changed=!state.graph || state.graph.origen!==v.origen || state.graph.destino!==v.destino;
+    state.graph=graph;
+    renderNotice(graph.extras);
+    if(changed || !state.chain.length){
+      state.chain=[v.origen];
+      state.selectedIndex=0;
+    }
+    return true;
+  }
+
+  function solveFull(){
+    if(!ensureInitialized()) return;
+    const {origen,destino}=state.graph;
+    const path=reconstructPath(origen,state.graph);
+    if(!path){
+      state.chain=[origen];
+      state.selectedIndex=0;
+      $("msg").textContent=`No existe camino entre «${origen}» y «${destino}» en el diccionario.`;
+      renderAll();
+      return;
+    }
+    state.chain=path;
+    state.selectedIndex=path.length-1;
+    $("msg").textContent=origen===destino ? "Origen y destino son la misma palabra (0 pasos)." : "";
+    renderAll();
+  }
+
+  function stepOnce(){
+    if(!ensureInitialized()) return;
+    const baseChain=state.chain.slice(0,state.selectedIndex+1);
+    const active=baseChain[baseChain.length-1];
+    const {destino}=state.graph;
+    if(active===destino){
+      $("msg").textContent=`¡Ya llegaste a «${destino}»!`;
+      renderAll();
+      return;
+    }
+    const next=bestNextStep(active,state.graph);
+    if(!next){
+      state.chain=baseChain;
+      state.selectedIndex=baseChain.length-1;
+      $("msg").textContent=`Desde «${active}» no hay camino hasta «${destino}».`;
+      renderAll();
+      return;
+    }
+    state.chain=[...baseChain,next];
+    state.selectedIndex=state.chain.length-1;
+    $("msg").textContent=next===destino ? `¡Resuelto en ${state.chain.length-1} ${state.chain.length-1===1?"paso":"pasos"}!` : "";
+    renderAll();
+  }
+
+  function extendWithNeighbor(word){
+    if(!state.graph) return;
+    const baseChain=state.chain.slice(0,state.selectedIndex+1);
+    state.chain=[...baseChain,word];
+    state.selectedIndex=state.chain.length-1;
+    const {destino,dist}=state.graph;
+    if(word===destino) $("msg").textContent=`¡Llegaste a «${destino}» en ${state.chain.length-1} ${state.chain.length-1===1?"paso":"pasos"}!`;
+    else if(!dist.has(word)) $("msg").textContent=`Desde «${word}» no hay camino hasta «${destino}».`;
+    else $("msg").textContent="";
+    renderAll();
+  }
+
+  function resetAll(){
+    $("fromWord").value="";
+    $("toWord").value="";
+    $("msg").textContent="";
+    clearResults();
+    $("fromWord").focus();
+  }
+
+  function swapInputs(){
+    const from=$("fromWord"), to=$("toWord");
+    const tmp=from.value;
+    from.value=to.value;
+    to.value=tmp;
+    $("msg").textContent="";
+    clearResults();
+    from.focus();
+  }
+
+  function handleInputChange(){
+    if(!state.graph) return;
+    const o=normalize($("fromWord").value), d=normalize($("toWord").value);
+    if(state.graph.origen!==o || state.graph.destino!==d){
+      $("msg").textContent="";
+      clearResults();
+    }
+  }
+
+  // ---------- tabs y eventos ----------
+  document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    $("page-"+t.dataset.page).classList.add("active");
+  }));
+
+  $("solveBtn").addEventListener("click",solveFull);
+  $("stepBtn").addEventListener("click",stepOnce);
+  $("resetBtn").addEventListener("click",resetAll);
+  $("swapBtn").addEventListener("click",swapInputs);
+  [$("fromWord"),$("toWord")].forEach(inp=>{
+    inp.addEventListener("input",handleInputChange);
+    inp.addEventListener("keydown",e=>{ if(e.key==="Enter") solveFull(); });
+  });
+
+  if(!ALL_WORDS.length) $("msg").textContent="No se cargó words.js.";
+})();
+</script>
+</body>
+</html>
